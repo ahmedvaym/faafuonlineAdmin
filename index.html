@@ -284,6 +284,37 @@
             100% { transform: rotate(360deg); }
         }
         
+        /* Category badges */
+        .category-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            background-color: #e0e0e0;
+            border-radius: 12px;
+            font-size: 12px;
+            margin-right: 5px;
+            margin-bottom: 5px;
+        }
+        
+        .category-badge .delete-category {
+            margin-left: 5px;
+            cursor: pointer;
+            color: #f44336;
+        }
+        
+        /* Category management */
+        .category-management {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .category-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-top: 10px;
+        }
+        
         /* Mobile responsiveness */
         @media (min-width: 768px) {
             .container {
@@ -375,6 +406,35 @@
         </div>
         
         <div class="admin-section">
+            <h2>Catalog Settings</h2>
+            <form id="catalogForm">
+                <div class="form-group">
+                    <label>Catalog Name</label>
+                    <input type="text" id="catalogNameInput" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Update Catalog Name</button>
+            </form>
+            
+            <div class="category-management">
+                <div style="flex: 1;">
+                    <h3>Categories</h3>
+                    <div class="category-list" id="categoryList">
+                        <!-- Categories will be loaded here -->
+                    </div>
+                </div>
+                <div style="flex: 1;">
+                    <h3>Add New Category</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <input type="text" id="newCategoryName" placeholder="Enter category name">
+                        </div>
+                        <button class="btn btn-primary" id="addCategoryBtn">Add Category</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="admin-section">
             <h2>Discount Management</h2>
             <form id="discountForm">
                 <div class="form-row">
@@ -404,10 +464,7 @@
                         <div class="form-group">
                             <label>Category</label>
                             <select id="productCategory" required>
-                                <option value="electronics">Electronics</option>
-                                <option value="fashion">Fashion</option>
-                                <option value="home">Home & Garden</option>
-                                <option value="toys">Toys</option>
+                                <!-- Categories will be loaded dynamically -->
                             </select>
                         </div>
                     </div>
@@ -624,13 +681,21 @@
         const closeModal = document.querySelector('.close-modal');
         const discountForm = document.getElementById('discountForm');
         const discountPercentageInput = document.getElementById('discountPercentage');
+        const catalogForm = document.getElementById('catalogForm');
+        const catalogNameInput = document.getElementById('catalogNameInput');
+        const productCategorySelect = document.getElementById('productCategory');
+        const categoryList = document.getElementById('categoryList');
+        const newCategoryName = document.getElementById('newCategoryName');
+        const addCategoryBtn = document.getElementById('addCategoryBtn');
 
         // App state
         let state = {
             products: [],
             usedItems: [],
             orders: [],
-            selectedOrder: null
+            selectedOrder: null,
+            catalogName: "Faafu.Online",
+            categories: []
         };
 
         // Initialize
@@ -639,6 +704,8 @@
             auth.onAuthStateChanged(user => {
                 if (user && localStorage.getItem('adminLoggedIn') === 'true') {
                     showAdminPanel();
+                    loadCatalogName();
+                    loadCategories();
                     loadProducts();
                     loadUsedItems();
                     loadOrders();
@@ -672,6 +739,8 @@
                 }
             });
             discountForm.addEventListener('submit', updateDiscount);
+            catalogForm.addEventListener('submit', updateCatalogName);
+            addCategoryBtn.addEventListener('click', addNewCategory);
         }
 
         // Handle login
@@ -684,6 +753,8 @@
                 // Simulate admin login (in a real app, this would be server-side)
                 localStorage.setItem('adminLoggedIn', 'true');
                 showAdminPanel();
+                loadCatalogName();
+                loadCategories();
                 loadProducts();
                 loadUsedItems();
                 loadOrders();
@@ -711,6 +782,130 @@
             adminPanel.style.display = 'none';
             document.getElementById('username').value = '';
             document.getElementById('password').value = '';
+        }
+
+        // Load catalog name from Firebase
+        function loadCatalogName() {
+            database.ref('catalogName').on('value', (snapshot) => {
+                const name = snapshot.val();
+                if (name) {
+                    state.catalogName = name;
+                    catalogNameInput.value = name;
+                } else {
+                    state.catalogName = "Faafu.Online";
+                    catalogNameInput.value = "Faafu.Online";
+                }
+                updateCategoriesDropdown();
+            });
+        }
+
+        // Load categories from Firebase
+        function loadCategories() {
+            database.ref('categories').on('value', (snapshot) => {
+                const categoriesData = snapshot.val();
+                if (categoriesData) {
+                    state.categories = Object.values(categoriesData);
+                    renderCategories();
+                    updateCategoriesDropdown();
+                } else {
+                    state.categories = [];
+                    renderCategories();
+                    updateCategoriesDropdown();
+                }
+            });
+        }
+
+        // Render categories list
+        function renderCategories() {
+            categoryList.innerHTML = state.categories.map(category => `
+                <div class="category-badge">
+                    ${category}
+                    <span class="delete-category" onclick="deleteCategory('${category}')">
+                        <i class="fas fa-times"></i>
+                    </span>
+                </div>
+            `).join('');
+        }
+
+        // Update categories dropdown in product form
+        function updateCategoriesDropdown() {
+            // Clear existing options
+            productCategorySelect.innerHTML = '';
+            
+            // Add catalog name as a special category
+            const catalogOption = document.createElement('option');
+            catalogOption.value = "catalog";
+            catalogOption.textContent = state.catalogName;
+            productCategorySelect.appendChild(catalogOption);
+            
+            // Add all other categories
+            state.categories.forEach(category => {
+                const option = document.createElement('option');
+                option.value = category;
+                option.textContent = category;
+                productCategorySelect.appendChild(option);
+            });
+        }
+
+        // Add new category
+        function addNewCategory() {
+            const categoryName = newCategoryName.value.trim();
+            
+            if (!categoryName) {
+                alert('Please enter a category name');
+                return;
+            }
+            
+            if (state.categories.includes(categoryName)) {
+                alert('This category already exists');
+                return;
+            }
+            
+            // Add to Firebase
+            database.ref('categories').push(categoryName)
+                .then(() => {
+                    newCategoryName.value = '';
+                })
+                .catch(error => {
+                    alert('Error adding category: ' + error.message);
+                });
+        }
+
+        // Delete category
+        function deleteCategory(categoryName) {
+            if (confirm(`Are you sure you want to delete the category "${categoryName}"? This will not affect existing products.`)) {
+                // Find the category in Firebase and remove it
+                database.ref('categories').orderByValue().equalTo(categoryName).once('value')
+                    .then(snapshot => {
+                        snapshot.forEach(child => {
+                            database.ref('categories/' + child.key).remove()
+                                .catch(error => {
+                                    alert('Error deleting category: ' + error.message);
+                                });
+                        });
+                    });
+            }
+        }
+
+        // Update catalog name
+        function updateCatalogName(e) {
+            e.preventDefault();
+            const name = catalogNameInput.value.trim();
+            
+            if (!name) {
+                alert('Please enter a catalog name');
+                return;
+            }
+            
+            database.ref('catalogName').set(name)
+                .then(() => {
+                    state.catalogName = name;
+                    updateCategoriesDropdown();
+                    alert('Catalog name updated successfully!');
+                })
+                .catch(error => {
+                    alert('Error updating catalog name: ' + error.message);
+                });
         }
 
         // Load discount from Firebase
@@ -863,11 +1058,15 @@
         }
         
         function renderProducts() {
-            productsList.innerHTML = state.products.map(product => `
+            productsList.innerHTML = state.products.map(product => {
+                // Display the catalog name if category is "catalog"
+                const categoryDisplay = product.category === "catalog" ? state.catalogName : product.category;
+                
+                return `
                 <tr>
                     <td>${product.id.substring(0, 8)}</td>
                     <td>${product.name}</td>
-                    <td>${product.category}</td>
+                    <td>${categoryDisplay}</td>
                     <td>MVR${product.price.toFixed(2)}</td>
                     <td>${product.featured ? 'Yes' : 'No'}</td>
                     <td>
@@ -881,7 +1080,7 @@
                         </div>
                     </td>
                 </tr>
-            `).join('');
+            `}).join('');
         }
         
         // Used items management
