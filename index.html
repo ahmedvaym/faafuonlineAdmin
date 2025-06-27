@@ -1,9 +1,8 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Admin Panel</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <!-- Firebase SDK -->
@@ -12,7 +11,344 @@
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-auth-compat.js"></script>
     <!-- EmailJS for sending emails -->
     <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
-    <link rel="stylesheet" href="style.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: #f5f5f5;
+            padding: 10px;
+            font-size: 14px;
+        }
+        
+        .container {
+            width: 100%;
+            margin: 0 auto;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        h1, h2 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.5rem;
+        }
+        
+        h3 {
+            font-size: 1.2rem;
+        }
+        
+        h4 {
+            font-size: 1rem;
+        }
+        
+        .admin-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            overflow-x: auto;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            font-size: 13px;
+        }
+        
+        th, td {
+            padding: 8px 10px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+            white-space: nowrap;
+        }
+        
+        th {
+            background-color: #f8f8f8;
+            font-weight: 600;
+        }
+        
+        tr:hover {
+            background-color: #f9f9f9;
+        }
+        
+        .btn {
+            padding: 6px 10px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            margin: 2px;
+        }
+        
+        .btn-primary {
+            background-color: #ff5722;
+            color: white;
+        }
+        
+        .btn-success {
+            background-color: #4CAF50;
+            color: white;
+        }
+        
+        .btn-danger {
+            background-color: #f44336;
+            color: white;
+        }
+        
+        .btn-warning {
+            background-color: #FFC107;
+            color: black;
+        }
+        
+        .btn-info {
+            background-color: #2196F3;
+            color: white;
+        }
+        
+        .btn-sm {
+            padding: 4px 6px;
+            font-size: 11px;
+        }
+        
+        .form-group {
+            margin-bottom: 12px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            font-size: 13px;
+        }
+        
+        input, select, textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+        
+        textarea {
+            min-height: 80px;
+        }
+        
+        .form-row {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .form-row .form-group {
+            flex: 1;
+        }
+        
+        .login-container {
+            width: 100%;
+            margin: 20px auto;
+            padding: 20px;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+        
+        .status-pending {
+            background-color: #FFC107;
+            color: black;
+        }
+        
+        .status-approved {
+            background-color: #4CAF50;
+            color: white;
+        }
+        
+        .status-rejected {
+            background-color: #f44336;
+            color: white;
+        }
+        
+        .status-completed {
+            background-color: #2196F3;
+            color: white;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 3px;
+            flex-wrap: wrap;
+        }
+        
+        .order-details-panel {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            font-size: 13px;
+        }
+        
+        .order-details-row {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 8px;
+        }
+        
+        .order-details-label {
+            font-weight: bold;
+            width: 100%;
+            margin-bottom: 3px;
+        }
+        
+        .order-items {
+            margin-top: 15px;
+        }
+        
+        .order-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .payment-slip {
+            margin-top: 12px;
+            max-width: 100%;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 8px;
+        }
+        
+        .payment-slip img {
+            max-width: 100%;
+            max-height: 200px;
+            display: block;
+            margin-top: 8px;
+        }
+        
+        /* Modal for image preview */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.8);
+            overflow: auto;
+        }
+        
+        .modal-content {
+            display: block;
+            margin: 10% auto;
+            max-width: 95%;
+            max-height: 80%;
+        }
+        
+        .close-modal {
+            position: absolute;
+            top: 10px;
+            right: 20px;
+            color: #f1f1f1;
+            font-size: 30px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        /* Loading spinner */
+        .spinner {
+            border: 3px solid rgba(0, 0, 0, 0.1);
+            border-radius: 50%;
+            border-top: 3px solid #3498db;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            margin: 15px auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Mobile responsiveness */
+        @media (min-width: 768px) {
+            .container {
+                max-width: 1200px;
+                padding: 20px;
+            }
+            
+            h1, h2 {
+                font-size: 1.8rem;
+            }
+            
+            h3 {
+                font-size: 1.4rem;
+            }
+            
+            h4 {
+                font-size: 1.2rem;
+            }
+            
+            .admin-section {
+                padding: 20px;
+            }
+            
+            th, td {
+                padding: 10px 12px;
+                font-size: 14px;
+            }
+            
+            .btn {
+                padding: 8px 12px;
+                font-size: 14px;
+            }
+            
+            .btn-sm {
+                padding: 5px 8px;
+                font-size: 12px;
+            }
+            
+            .form-row {
+                flex-direction: row;
+                gap: 15px;
+            }
+            
+            .order-details-row {
+                flex-direction: row;
+            }
+            
+            .order-details-label {
+                width: 150px;
+                margin-bottom: 0;
+            }
+            
+            .modal-content {
+                margin: 5% auto;
+                max-width: 90%;
+                max-height: 90%;
+            }
+            
+            .close-modal {
+                top: 15px;
+                right: 35px;
+                font-size: 40px;
+            }
+        }
+    </style>
 </head>
 <body>
     <div class="container" id="loginContainer">
@@ -33,7 +369,7 @@
     </div>
 
     <div class="container" id="adminPanel" style="display:none">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
             <h1>Admin Dashboard</h1>
             <button class="btn btn-danger" id="logoutBtn">Logout</button>
         </div>
@@ -57,7 +393,7 @@
             <h2>Product Management</h2>
             <button class="btn btn-primary" id="addProductBtn">Add New Product</button>
             
-            <div id="productForm" style="display:none; margin-top:20px">
+            <div id="productForm" style="display:none; margin-top:15px">
                 <form id="editProductForm">
                     <input type="hidden" id="productId">
                     <div class="form-row">
@@ -124,7 +460,7 @@
             <h2>Used Items Management</h2>
             <button class="btn btn-primary" id="addUsedItemBtn">Add Used Item</button>
             
-            <div id="usedItemForm" style="display:none; margin-top:20px">
+            <div id="usedItemForm" style="display:none; margin-top:15px">
                 <form id="editUsedItemForm">
                     <input type="hidden" id="usedItemId">
                     <div class="form-group">
@@ -182,17 +518,17 @@
         </div>
         
         <div class="admin-section">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <h2>Order Management</h2>
-                <div>
-                    <select id="orderStatusFilter" style="padding: 8px; border-radius: 4px; border: 1px solid #ddd;">
+            <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px;">
+                <h2 style="margin-bottom: 0;">Order Management</h2>
+                <div style="display: flex; gap: 10px;">
+                    <select id="orderStatusFilter" style="flex: 1; padding: 8px; border-radius: 4px; border: 1px solid #ddd;">
                         <option value="all">All Orders</option>
                         <option value="pending">Pending</option>
                         <option value="approved">Approved</option>
                         <option value="rejected">Rejected</option>
                         <option value="completed">Completed</option>
                     </select>
-                    <button class="btn btn-primary" id="refreshOrdersBtn" style="margin-left: 10px;">
+                    <button class="btn btn-primary" id="refreshOrdersBtn">
                         <i class="fas fa-sync-alt"></i> Refresh
                     </button>
                 </div>
@@ -204,7 +540,6 @@
                         <th>Order ID</th>
                         <th>Customer</th>
                         <th>Amount</th>
-                        <th>Date</th>
                         <th>Status</th>
                         <th>Actions</th>
                     </tr>
@@ -219,11 +554,11 @@
                 <div id="orderDetailsContent">
                     <!-- Order details will be loaded here -->
                 </div>
-                <div id="emailStatus" style="margin-top: 15px; display: none;"></div>
-                <div style="margin-top: 20px;">
+                <div id="emailStatus" style="margin-top: 10px; display: none;"></div>
+                <div style="margin-top: 15px; display: flex; gap: 10px;">
                     <button class="btn btn-primary" id="closeOrderDetails">Close Details</button>
-                    <button class="btn btn-info" id="sendEmailBtn" style="margin-left: 10px;">
-                        <i class="fas fa-envelope"></i> Send Order Details
+                    <button class="btn btn-info" id="sendEmailBtn">
+                        <i class="fas fa-envelope"></i> Send Email
                     </button>
                 </div>
             </div>
@@ -681,7 +1016,7 @@
                     <div>MVR${order.total.toFixed(2)}</div>
                 </div>
                 
-                <h4 style="margin-top: 20px;">Customer Information</h4>
+                <h4 style="margin-top: 15px;">Customer Information</h4>
                 <div class="order-details-row">
                     <div class="order-details-label">Name:</div>
                     <div>${order.shippingInfo?.name || 'N/A'}</div>
@@ -873,8 +1208,7 @@
                 <tr>
                     <td>${order.orderNumber || order.id.substring(0, 8)}</td>
                     <td>${order.shippingInfo?.name || 'N/A'}</td>
-                    <td>$${order.total.toFixed(2)}</td>
-                    <td>${order.date || 'N/A'}</td>
+                    <td>MVR${order.total.toFixed(2)}</td>
                     <td>
                         <span class="status-badge status-${order.status}">
                             ${order.status}
