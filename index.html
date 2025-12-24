@@ -9,6 +9,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-storage-compat.js"></script>
     <!-- EmailJS for sending emails -->
     <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
     <style>
@@ -236,6 +237,14 @@
             max-height: 200px;
             display: block;
             margin-top: 8px;
+        }
+        
+        .image-preview {
+            max-width: 150px;
+            max-height: 150px;
+            margin-top: 10px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
         }
         
         /* Modal for image preview */
@@ -479,8 +488,9 @@
                         </div>
                     </div>
                     <div class="form-group">
-                        <label>Image URL</label>
-                        <input type="text" id="productImage" required>
+                        <label>Product Image URL</label>
+                        <input type="url" id="productImage" placeholder="https://example.com/image.jpg" required>
+                        <div id="productImagePreview" style="margin-top: 10px;"></div>
                     </div>
                     <div class="form-group">
                         <label>Description</label>
@@ -503,6 +513,7 @@
                         <th>Name</th>
                         <th>Category</th>
                         <th>Price</th>
+                        <th>Image</th>
                         <th>Featured</th>
                         <th>Actions</th>
                     </tr>
@@ -545,8 +556,9 @@
                         <input type="tel" id="usedItemContact" required>
                     </div>
                     <div class="form-group">
-                        <label>Image URL</label>
-                        <input type="text" id="usedItemImage">
+                        <label>Item Image URL</label>
+                        <input type="url" id="usedItemImage" placeholder="https://example.com/image.jpg">
+                        <div id="usedItemImagePreview" style="margin-top: 10px;"></div>
                     </div>
                     <div class="form-group">
                         <label>Description</label>
@@ -564,6 +576,7 @@
                         <th>Name</th>
                         <th>Price</th>
                         <th>Island</th>
+                        <th>Image</th>
                         <th>Contact</th>
                         <th>Actions</th>
                     </tr>
@@ -687,6 +700,10 @@
         const categoryList = document.getElementById('categoryList');
         const newCategoryName = document.getElementById('newCategoryName');
         const addCategoryBtn = document.getElementById('addCategoryBtn');
+        const productImageInput = document.getElementById('productImage');
+        const productImagePreview = document.getElementById('productImagePreview');
+        const usedItemImageInput = document.getElementById('usedItemImage');
+        const usedItemImagePreview = document.getElementById('usedItemImagePreview');
 
         // App state
         let state = {
@@ -700,20 +717,18 @@
 
         // Initialize
         function init() {
-            // Check if already logged in
-            auth.onAuthStateChanged(user => {
-                if (user && localStorage.getItem('adminLoggedIn') === 'true') {
-                    showAdminPanel();
-                    loadCatalogName();
-                    loadCategories();
-                    loadProducts();
-                    loadUsedItems();
-                    loadOrders();
-                    loadDiscount();
-                } else {
-                    showLoginPanel();
-                }
-            });
+            // Check if already logged in (using localStorage instead of Firebase Auth)
+            if (localStorage.getItem('adminLoggedIn') === 'true') {
+                showAdminPanel();
+                loadCatalogName();
+                loadCategories();
+                loadProducts();
+                loadUsedItems();
+                loadOrders();
+                loadDiscount();
+            } else {
+                showLoginPanel();
+            }
 
             // Event listeners
             loginForm.addEventListener('submit', handleLogin);
@@ -741,6 +756,37 @@
             discountForm.addEventListener('submit', updateDiscount);
             catalogForm.addEventListener('submit', updateCatalogName);
             addCategoryBtn.addEventListener('click', addNewCategory);
+            
+            // Image URL preview listeners
+            productImageInput.addEventListener('input', () => {
+                showImagePreview(productImageInput.value, productImagePreview);
+            });
+            
+            usedItemImageInput.addEventListener('input', () => {
+                showImagePreview(usedItemImageInput.value, usedItemImagePreview);
+            });
+        }
+
+        // Show image preview from URL
+        function showImagePreview(imageUrl, container) {
+            if (imageUrl && isValidUrl(imageUrl)) {
+                container.innerHTML = `
+                    <img src="${imageUrl}" alt="Preview" class="image-preview" onerror="this.style.display='none'">
+                    <p style="font-size: 11px; color: #666; margin-top: 5px;">Image Preview</p>
+                `;
+            } else {
+                container.innerHTML = '';
+            }
+        }
+
+        // Validate URL
+        function isValidUrl(string) {
+            try {
+                new URL(string);
+                return true;
+            } catch (_) {
+                return false;
+            }
         }
 
         // Handle login
@@ -750,7 +796,6 @@
             const password = document.getElementById('password').value;
             
             if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
-                // Simulate admin login (in a real app, this would be server-side)
                 localStorage.setItem('adminLoggedIn', 'true');
                 showAdminPanel();
                 loadCatalogName();
@@ -988,6 +1033,7 @@
         // Product management
         function showAddProductForm() {
             editProductForm.reset();
+            productImagePreview.innerHTML = '';
             document.getElementById('productId').value = '';
             productForm.style.display = 'block';
         }
@@ -1005,46 +1051,58 @@
             document.getElementById('productCategory').value = product.category;
             document.getElementById('productPrice').value = product.price;
             document.getElementById('productOriginalPrice').value = product.original_price || '';
-            document.getElementById('productImage').value = product.image;
+            document.getElementById('productImage').value = product.image || '';
             document.getElementById('productDescription').value = product.description;
             document.getElementById('productFeatured').checked = product.featured || false;
+            
+            // Show existing image preview
+            if (product.image) {
+                showImagePreview(product.image, productImagePreview);
+            }
             
             productForm.style.display = 'block';
         }
         
-        function saveProduct(e) {
+        async function saveProduct(e) {
             e.preventDefault();
             
-            const product = {
-                name: document.getElementById('productName').value,
-                category: document.getElementById('productCategory').value,
-                price: parseFloat(document.getElementById('productPrice').value),
-                original_price: parseFloat(document.getElementById('productOriginalPrice').value) || null,
-                image: document.getElementById('productImage').value,
-                description: document.getElementById('productDescription').value,
-                featured: document.getElementById('productFeatured').checked
-            };
-            
-            const productId = document.getElementById('productId').value;
-            
-            if (productId) {
-                // Update existing product
-                database.ref(`products/${productId}`).update(product)
-                    .then(() => {
-                        hideProductForm();
-                    })
-                    .catch(error => {
-                        alert('Error updating product: ' + error.message);
-                    });
-            } else {
-                // Add new product
-                database.ref('products').push(product)
-                    .then(() => {
-                        hideProductForm();
-                    })
-                    .catch(error => {
-                        alert('Error adding product: ' + error.message);
-                    });
+            try {
+                const imageUrl = document.getElementById('productImage').value.trim();
+                
+                if (!imageUrl) {
+                    alert('Please enter a product image URL');
+                    return;
+                }
+                
+                if (!isValidUrl(imageUrl)) {
+                    alert('Please enter a valid URL for the product image');
+                    return;
+                }
+                
+                const product = {
+                    name: document.getElementById('productName').value,
+                    category: document.getElementById('productCategory').value,
+                    price: parseFloat(document.getElementById('productPrice').value),
+                    original_price: parseFloat(document.getElementById('productOriginalPrice').value) || null,
+                    image: imageUrl,
+                    description: document.getElementById('productDescription').value,
+                    featured: document.getElementById('productFeatured').checked
+                };
+                
+                const productId = document.getElementById('productId').value;
+                
+                if (productId) {
+                    // Update existing product
+                    await database.ref(`products/${productId}`).update(product);
+                    hideProductForm();
+                } else {
+                    // Add new product
+                    await database.ref('products').push(product);
+                    hideProductForm();
+                }
+                
+            } catch (error) {
+                alert('Error saving product: ' + error.message);
             }
         }
         
@@ -1068,6 +1126,14 @@
                     <td>${product.name}</td>
                     <td>${categoryDisplay}</td>
                     <td>MVR${product.price.toFixed(2)}</td>
+                    <td>
+                        ${product.image ? 
+                            `<img src="${product.image}" alt="${product.name}" 
+                                  style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px; cursor: pointer;"
+                                  onclick="openImageModal('${product.image}')">` : 
+                            'No image'
+                        }
+                    </td>
                     <td>${product.featured ? 'Yes' : 'No'}</td>
                     <td>
                         <div class="action-buttons">
@@ -1086,6 +1152,7 @@
         // Used items management
         function showAddUsedItemForm() {
             editUsedItemForm.reset();
+            usedItemImagePreview.innerHTML = '';
             document.getElementById('usedItemId').value = '';
             usedItemForm.style.display = 'block';
         }
@@ -1106,41 +1173,48 @@
             document.getElementById('usedItemImage').value = item.image || '';
             document.getElementById('usedItemDescription').value = item.description || '';
             
+            // Show existing image preview
+            if (item.image) {
+                showImagePreview(item.image, usedItemImagePreview);
+            }
+            
             usedItemForm.style.display = 'block';
         }
         
-        function saveUsedItem(e) {
+        async function saveUsedItem(e) {
             e.preventDefault();
             
-            const usedItem = {
-                name: document.getElementById('usedItemName').value,
-                price: parseFloat(document.getElementById('usedItemPrice').value),
-                island: document.getElementById('usedItemIsland').value,
-                contact: document.getElementById('usedItemContact').value,
-                image: document.getElementById('usedItemImage').value || null,
-                description: document.getElementById('usedItemDescription').value || null
-            };
-            
-            const itemId = document.getElementById('usedItemId').value;
-            
-            if (itemId) {
-                // Update existing item
-                database.ref(`usedItems/${itemId}`).update(usedItem)
-                    .then(() => {
-                        hideUsedItemForm();
-                    })
-                    .catch(error => {
-                        alert('Error updating used item: ' + error.message);
-                    });
-            } else {
-                // Add new item
-                database.ref('usedItems').push(usedItem)
-                    .then(() => {
-                        hideUsedItemForm();
-                    })
-                    .catch(error => {
-                        alert('Error adding used item: ' + error.message);
-                    });
+            try {
+                const imageUrl = document.getElementById('usedItemImage').value.trim();
+                
+                if (imageUrl && !isValidUrl(imageUrl)) {
+                    alert('Please enter a valid URL for the item image');
+                    return;
+                }
+                
+                const usedItem = {
+                    name: document.getElementById('usedItemName').value,
+                    price: parseFloat(document.getElementById('usedItemPrice').value),
+                    island: document.getElementById('usedItemIsland').value,
+                    contact: document.getElementById('usedItemContact').value,
+                    image: imageUrl || null,
+                    description: document.getElementById('usedItemDescription').value || null
+                };
+                
+                const itemId = document.getElementById('usedItemId').value;
+                
+                if (itemId) {
+                    // Update existing item
+                    await database.ref(`usedItems/${itemId}`).update(usedItem);
+                    hideUsedItemForm();
+                } else {
+                    // Add new item
+                    await database.ref('usedItems').push(usedItem);
+                    hideUsedItemForm();
+                }
+                
+            } catch (error) {
+                alert('Error saving used item: ' + error.message);
             }
         }
         
@@ -1160,6 +1234,14 @@
                     <td>${item.name}</td>
                     <td>MVR${item.price.toFixed(2)}</td>
                     <td>${item.island}</td>
+                    <td>
+                        ${item.image ? 
+                            `<img src="${item.image}" alt="${item.name}" 
+                                  style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px; cursor: pointer;"
+                                  onclick="openImageModal('${item.image}')">` : 
+                            'No image'
+                        }
+                    </td>
                     <td>${item.contact}</td>
                     <td>
                         <div class="action-buttons">
